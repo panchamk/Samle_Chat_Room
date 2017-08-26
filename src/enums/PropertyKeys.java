@@ -8,7 +8,7 @@ package enums;
  *
  */
 public enum PropertyKeys {
-	HOST("HOST"), PORT("PORT");
+	HOST("host"), PORT("port"), SSL("ssl"), USERNAME("user"), PASSWORD("password");
 	private String key = null;
 
 	private PropertyKeys(String key) {

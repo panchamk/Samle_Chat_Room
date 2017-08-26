@@ -1,9 +1,11 @@
 
 import java.util.Scanner;
 
+import factory.ChatRoomServiceFactory;
 import factory.RedisConnectionFactory;
 import logger.FileLogger;
 import redis.clients.jedis.Jedis;
+import service.IChatRoomService;
 
 /**
 * 
@@ -27,6 +29,7 @@ public class TestMain {
 	public static void main(String[] args) {
 		try {
 			setup();
+			IChatRoomService chatRoomService = ChatRoomServiceFactory.getInstance();
 			Scanner scanner = new Scanner(System.in);
 			System.out.println("Enter SUBSCRIBE to subscribe to the chat room");
 			System.out.println("Enter PUBLISH <space> MESSAGE to the chat room");
@@ -34,13 +37,14 @@ public class TestMain {
 			while (true) {
 				String readIn = scanner.nextLine();
 				if (SUBSCRIBE.equalsIgnoreCase(readIn)) {
-					subscribeToChannel();
+					chatRoomService.subscribe(CHANNEL);
 				} else if (readIn.toUpperCase().contains(PUBLISH)) {
 					String[] inputs = readIn.split("\\s+");
 					// if (inputs[1].equalsIgnoreCase(CHANNEL)) {
 					// jedis.publish(CHANNEL, inputs[2]);
 					// }
-					jedis.publish(CHANNEL, inputs[1]);
+					// jedis.publish(CHANNEL, inputs[1]);
+					chatRoomService.publish(CHANNEL, inputs[1]);
 				} else if (readIn.equalsIgnoreCase(CANCEL))
 					break;
 				else
@@ -49,6 +53,9 @@ public class TestMain {
 
 		} catch (Exception e) {
 			fileLogger.writeLog("asd", e);
+		} finally {
+			RedisConnectionFactory.releaseJedisConnection(jedis);
+			RedisConnectionFactory.releasePool();
 		}
 
 	}

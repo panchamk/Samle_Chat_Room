@@ -4,17 +4,17 @@
 */
 package factory;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
 
+import helper.RedisSetup;
+import listener.MyJedisPubSubListener;
 import logger.FileLogger;
-import pojo.MyJedisPubSubListener;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
-import util.FileUtils;
+import redis.clients.jedis.Protocol;
+import redis.clients.jedis.exceptions.JedisException;
 
 /**
  * @author pancham.gupta
@@ -23,59 +23,50 @@ import util.FileUtils;
 public abstract class RedisConnectionFactory {
 
 	private static FileLogger fileLogger = FileLogger.getInstance();
-	private static Properties properties;
+	private static JedisPool jedisPool;
 
 	public static Jedis getRedisConnection() throws Exception {
 		Jedis jedis = null;
 		try {
-			loadProperties();
-			jedis = new Jedis(getHost(), getPort());
+			RedisSetup.loadProperties();
+			JedisPoolConfig poolConfig = new JedisPoolConfig();
+			jedisPool = new JedisPool(poolConfig, RedisSetup.getHost(), RedisSetup.getPort(), Protocol.DEFAULT_TIMEOUT);
+			jedis = jedisPool.getResource();
+			if (RedisSetup.getSSLEnabled())
+				jedis.auth(RedisSetup.getPassword());
 		} catch (IOException e) {
 			fileLogger.writeLog("asd", e);
 		}
 		return jedis;
 	}
 
+	public static void releaseJedisConnection(Jedis jedis) {
+		try {
+			jedis.close();
+			jedis = null;
+		} catch (JedisException ex) {
+			fileLogger.writeLog("Error in closing connection", ex);
+		}
+
+	}
+
+	public static void releasePool() {
+		try {
+			jedisPool.destroy();
+		} catch (JedisException ex) {
+			fileLogger.writeLog("Error in destroying jedis connection pool", ex);
+		}
+	}
+
 	public static JedisPubSub getJedisPubSub() throws Exception {
 		JedisPubSub jedisPubSub = null;
 		try {
-			loadProperties();
+			RedisSetup.loadProperties();
 			jedisPubSub = new MyJedisPubSubListener();
 		} catch (IOException e) {
 			fileLogger.writeLog("asd", e);
 		}
 		return jedisPubSub;
 
-	}
-
-	/**
-	 * @throws IOException
-	 * 
-	 */
-	private static void loadProperties() throws IOException {
-		if (properties == null) {
-
-			/*
-			 * InputStream inputStream =
-			 * Thread.currentThread().getContextClassLoader().
-			 * getResourceAsStream( "Connection.properties");
-			 */
-			InputStream inputStream = new FileInputStream(
-					new File(FileUtils.getExecutionPath(RedisConnectionFactory.class) + File.separator
-							+ "Connection.properties"));
-			properties = new Properties();
-			properties.load(inputStream);
-			if (inputStream != null) {
-				inputStream.close();
-			}
-		}
-	}
-
-	public static String getHost() {
-		return ((String) properties.get(enums.PropertyKeys.HOST.getPropertyKey()));
-	}
-
-	public static int getPort() {
-		return Integer.parseInt((String) properties.get(enums.PropertyKeys.PORT.getPropertyKey()));
 	}
 }
